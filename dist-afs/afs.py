@@ -5,6 +5,7 @@ import random
 from optparse import OptionParser
 import string
 
+
 # to make Python2 and Python3 act the same -- how dumb
 def random_seed(seed):
     try:
@@ -13,15 +14,19 @@ def random_seed(seed):
         random.seed(seed)
     return
 
+
 def tprint(str):
     print(str)
+
 
 def dprint(str):
     return
 
+
 def dospace(howmuch):
     for i in range(howmuch + 1):
-        print('%28s' % ' ', end='')
+        print("%28s" % " ", end="")
+
 
 # given list, pick random element and return it
 def pickrand(tlist):
@@ -29,20 +34,23 @@ def pickrand(tlist):
     p = tlist[n]
     return p
 
+
 # given number, conclude if nth bit is set
 def isset(num, index):
     mask = 1 << index
     return (num & mask) > 0
 
+
 # useful instead of assert
 def zassert(cond, str):
     if cond == False:
-        print('ABORT::', str)
+        print("ABORT::", str)
         exit(1)
+
 
 #
 # Which files are used in the simulation
-# 
+#
 # Not representing a realistic piece of anything
 # but rather just for convenience when generating
 # random traces ...
@@ -52,10 +60,11 @@ def zassert(cond, str):
 # for more than 26 files but who cares
 #
 
+
 class files:
     def __init__(self, numfiles):
         self.numfiles = numfiles
-        self.value    = 0
+        self.value = 0
         self.filelist = list(string.ascii_lowercase)[0:numfiles]
 
     def getfiles(self):
@@ -66,19 +75,20 @@ class files:
         self.value += 1
         return rc
 
+
 #
 # Models the actions of the AFS server
-# 
+#
 # The only real interactions are get/put
 # get() causes the server to track which files cache what;
 # put() may cause callbacks to invalidate client caches
 #
 class server:
     def __init__(self, files, solve, detail):
-        self.files  = files
-        self.solve  = solve
+        self.files = files
+        self.solve = solve
         self.detail = detail
-        
+
         flist = self.files.getfiles()
         self.contents = {}
         for f in flist:
@@ -87,18 +97,17 @@ class server:
         self.getcnt, self.putcnt = 0, 0
 
     def stats(self):
-        print('Server   -- Gets:%d Puts:%d' % (self.getcnt, self.putcnt))
+        print("Server   -- Gets:%d Puts:%d" % (self.getcnt, self.putcnt))
 
     def filestats(self, printcontents):
         for fname in self.contents:
             if printcontents:
-                print('file:%s contains:%d' % (fname, self.contents[fname]))
+                print("file:%s contains:%d" % (fname, self.contents[fname]))
             else:
-                print('file:%s contains:?' % fname)
-            
+                print("file:%s contains:?" % fname)
 
     def setclients(self, clients):
-        # need list of clients 
+        # need list of clients
         self.clients = clients
 
         # per client callback list
@@ -107,30 +116,37 @@ class server:
             self.cache[c.getname()] = []
 
     def get(self, client, fname):
-        zassert(fname in self.contents, 'server:get() -- file:%s not found on server' % fname)
+        zassert(
+            fname in self.contents,
+            "server:get() -- file:%s not found on server" % fname,
+        )
         self.getcnt += 1
         if self.solve and isset(self.detail, 0):
-            print('getfile:%s c:%s [%d]' % (fname, client, self.contents[fname]))
+            print("getfile:%s c:%s [%d]" % (fname, client, self.contents[fname]))
         if fname not in self.cache[client]:
             self.cache[client].append(fname)
             # dprint('  -> List for client %s' % client, ' is ', self.cache[client])
         return self.contents[fname]
 
     def put(self, client, fname, value):
-        zassert(fname in self.contents, 'server:put() -- file:%s not found on server' % fname)
+        zassert(
+            fname in self.contents,
+            "server:put() -- file:%s not found on server" % fname,
+        )
         self.putcnt += 1
         self.contents[fname] = value
         if self.solve and isset(self.detail, 0):
-            print('putfile:%s c:%s [%s]' % (fname, client, self.contents[fname]))
+            print("putfile:%s c:%s [%s]" % (fname, client, self.contents[fname]))
         # scan others for callback
         for c in self.clients:
             cname = c.getname()
             if fname in self.cache[cname] and cname != client:
                 if self.solve and isset(self.detail, 1):
-                    print('callback: c:%s file:%s' % (cname, fname))
+                    print("callback: c:%s file:%s" % (cname, fname))
                 c.invalidate(fname)
                 # XXX - this is not right ...
                 # self.cache[cname].remove(fname)
+
 
 #
 # Per-client file descriptors
@@ -142,31 +158,48 @@ class server:
 class filedesc:
     def __init__(self, max=1024):
         self.max = max
-        self.fd  = {}
+        self.fd = {}
         for i in range(self.max):
-            self.fd[i] = ''
+            self.fd[i] = ""
 
     def alloc(self, fname, sfd=-1):
         if sfd != -1:
-            zassert(self.fd[sfd] == '', 'filedesc:alloc() -- fd:%d already in use, cannot allocate' % sfd)
+            zassert(
+                self.fd[sfd] == "",
+                "filedesc:alloc() -- fd:%d already in use, cannot allocate" % sfd,
+            )
             self.fd[sfd] = fname
             return sfd
         else:
             for i in range(self.max):
-                if self.fd[i] == '':
+                if self.fd[i] == "":
                     self.fd[i] = fname
                     return i
             return -1
 
     def lookup(self, sfd):
-        zassert(i >= 0 and i < self.max, 'filedesc:lookup() -- file descriptor out of valid range (%d not between 0 and %d)' % (sfd, self.max))
-        zassert(self.fd[sfd] != '',      'filedesc:lookup() -- fd:%d not in use, cannot lookup' % sfd)
+        zassert(
+            i >= 0 and i < self.max,
+            "filedesc:lookup() -- file descriptor out of valid range (%d not between 0 and %d)"
+            % (sfd, self.max),
+        )
+        zassert(
+            self.fd[sfd] != "",
+            "filedesc:lookup() -- fd:%d not in use, cannot lookup" % sfd,
+        )
         return self.fd[sfd]
 
     def free(self, i):
-        zassert(i >= 0 and i < self.max, 'filedesc:free() -- file descriptor out of valid range (%d not between 0 and %d)' % (sfd, self.max))
-        zassert(self.fd[sfd] != '',      'filedesc:free() -- fd:%d not in use, cannot free' % sfd)
-        self.fd[i] = ''
+        zassert(
+            i >= 0 and i < self.max,
+            "filedesc:free() -- file descriptor out of valid range (%d not between 0 and %d)"
+            % (sfd, self.max),
+        )
+        zassert(
+            self.fd[sfd] != "", "filedesc:free() -- fd:%d not in use, cannot free" % sfd
+        )
+        self.fd[i] = ""
+
 
 #
 # The client cache
@@ -186,54 +219,69 @@ class filedesc:
 #
 class cache:
     def __init__(self, name, num, solve, detail):
-        self.name       = name
-        self.num        = num
-        self.solve      = solve
-        self.detail     = detail
+        self.name = name
+        self.num = num
+        self.solve = solve
+        self.detail = detail
 
-        self.cache      = {}
+        self.cache = {}
 
-        self.hitcnt     = 0
-        self.misscnt    = 0
+        self.hitcnt = 0
+        self.misscnt = 0
         self.invalidcnt = 0
 
     def stats(self):
-        print('   Cache -- Hits:%d Misses:%d Invalidates:%d' % (self.hitcnt, self.misscnt, self.invalidcnt))
+        print(
+            "   Cache -- Hits:%d Misses:%d Invalidates:%d"
+            % (self.hitcnt, self.misscnt, self.invalidcnt)
+        )
 
     def put(self, fname, data, dirty, refcnt):
         self.cache[fname] = dict(data=data, dirty=dirty, refcnt=refcnt, valid=True)
-            
+
     def update(self, fname, data):
-        self.cache[fname] = dict(data=data, dirty=True, refcnt=self.cache[fname]['refcnt'], valid=self.cache[fname]['valid'])
+        self.cache[fname] = dict(
+            data=data,
+            dirty=True,
+            refcnt=self.cache[fname]["refcnt"],
+            valid=self.cache[fname]["valid"],
+        )
 
     def invalidate(self, fname):
         dospace(self.num)
-        print('invalidate file:%s' % fname, 'cache:', self.cache)
+        print("invalidate file:%s" % fname, "cache:", self.cache)
         # zassert(fname in self.cache, 'cache:invalidate() -- cannot invalidate file not in cache (%s)' % fname)
         if fname not in self.cache:
             return
         self.invalidcnt += 1
-        self.cache[fname] = dict(data=self.cache[fname]['data'], dirty=self.cache[fname]['dirty'],
-                                 refcnt=self.cache[fname]['refcnt'], valid=False)
+        self.cache[fname] = dict(
+            data=self.cache[fname]["data"],
+            dirty=self.cache[fname]["dirty"],
+            refcnt=self.cache[fname]["refcnt"],
+            valid=False,
+        )
         if self.solve and isset(self.detail, 1):
             dospace(self.num)
-            if isset(self.detail,3):
-                print('%2s invalidate %s' % (self.name, fname))
+            if isset(self.detail, 3):
+                print("%2s invalidate %s" % (self.name, fname))
             else:
-                print('invalidate %s' % (fname))
+                print("invalidate %s" % (fname))
             self.printstate(self.num)
 
     def checkvalid(self, fname):
-        zassert(fname in self.cache, 'cache:checkvalid() -- cannot checkvalid on file not in cache (%s)' % fname)
-        if self.cache[fname]['valid'] == False and self.cache[fname]['refcnt'] == 0:
+        zassert(
+            fname in self.cache,
+            "cache:checkvalid() -- cannot checkvalid on file not in cache (%s)" % fname,
+        )
+        if self.cache[fname]["valid"] == False and self.cache[fname]["refcnt"] == 0:
             del self.cache[fname]
 
     def printstate(self, fname):
         for fname in self.cache:
-            data   = self.cache[fname]['data']
-            dirty  = self.cache[fname]['dirty']
-            refcnt = self.cache[fname]['refcnt']
-            valid  = self.cache[fname]['valid']
+            data = self.cache[fname]["data"]
+            dirty = self.cache[fname]["dirty"]
+            refcnt = self.cache[fname]["refcnt"]
+            valid = self.cache[fname]["valid"]
             if valid == True:
                 validPrint = 1
             else:
@@ -246,147 +294,197 @@ class cache:
             if self.solve and isset(self.detail, 2):
                 dospace(self.num)
                 if isset(self.detail, 3):
-                    print('%s [%s:%2d (v=%d,d=%d,r=%d)]' % (self.name, fname, data, validPrint, dirtyPrint, refcnt))
+                    print(
+                        "%s [%s:%2d (v=%d,d=%d,r=%d)]"
+                        % (self.name, fname, data, validPrint, dirtyPrint, refcnt)
+                    )
                 else:
-                    print('[%s:%2d (v=%d,d=%d,r=%d)]' % (fname, data, validPrint, dirtyPrint, refcnt))
+                    print(
+                        "[%s:%2d (v=%d,d=%d,r=%d)]"
+                        % (fname, data, validPrint, dirtyPrint, refcnt)
+                    )
 
     def checkget(self, fname):
         if fname in self.cache:
-            self.cache[fname] = dict(data=self.cache[fname]['data'], dirty=self.cache[fname]['dirty'],
-                                     refcnt=self.cache[fname]['refcnt'], valid=self.cache[fname]['valid'])
+            self.cache[fname] = dict(
+                data=self.cache[fname]["data"],
+                dirty=self.cache[fname]["dirty"],
+                refcnt=self.cache[fname]["refcnt"],
+                valid=self.cache[fname]["valid"],
+            )
             self.hitcnt += 1
             return (True, self.cache[fname])
         self.misscnt += 1
         return (False, -1)
 
     def get(self, fname):
-        assert(fname in self.cache)
+        assert fname in self.cache
         return (True, self.cache[fname])
 
     def incref(self, fname):
-        assert(fname in self.cache)
-        self.cache[fname] = dict(data=self.cache[fname]['data'], dirty=self.cache[fname]['dirty'],
-                                 refcnt=self.cache[fname]['refcnt'] + 1, valid=self.cache[fname]['valid'])
-        
+        assert fname in self.cache
+        self.cache[fname] = dict(
+            data=self.cache[fname]["data"],
+            dirty=self.cache[fname]["dirty"],
+            refcnt=self.cache[fname]["refcnt"] + 1,
+            valid=self.cache[fname]["valid"],
+        )
+
     def decref(self, fname):
-        assert(fname in self.cache)
-        self.cache[fname] = dict(data=self.cache[fname]['data'], dirty=self.cache[fname]['dirty'],
-                                 refcnt=self.cache[fname]['refcnt'] - 1, valid=self.cache[fname]['valid'])
-        
+        assert fname in self.cache
+        self.cache[fname] = dict(
+            data=self.cache[fname]["data"],
+            dirty=self.cache[fname]["dirty"],
+            refcnt=self.cache[fname]["refcnt"] - 1,
+            valid=self.cache[fname]["valid"],
+        )
+
     def setdirty(self, fname, dirty):
-        assert(fname in self.cache)
-        self.cache[fname] = dict(data=self.cache[fname]['data'], dirty=dirty,
-                                 refcnt=self.cache[fname]['refcnt'], valid=self.cache[fname]['valid'])
+        assert fname in self.cache
+        self.cache[fname] = dict(
+            data=self.cache[fname]["data"],
+            dirty=dirty,
+            refcnt=self.cache[fname]["refcnt"],
+            valid=self.cache[fname]["valid"],
+        )
 
     def setclean(self, fname):
-        assert(fname in self.cache)
-        self.cache[fname] = dict(data=self.cache[fname]['data'], dirty=False,
-                                 refcnt=self.cache[fname]['refcnt'], valid=self.cache[fname]['valid'])
-            
+        assert fname in self.cache
+        self.cache[fname] = dict(
+            data=self.cache[fname]["data"],
+            dirty=False,
+            refcnt=self.cache[fname]["refcnt"],
+            valid=self.cache[fname]["valid"],
+        )
+
     def isdirty(self, fname):
-        assert(fname in self.cache)
-        return (self.cache[fname]['dirty'] == True)
+        assert fname in self.cache
+        return self.cache[fname]["dirty"] == True
 
     def setvalid(self, fname):
-        assert(fname in self.cache)
-        self.cache[fname] = dict(data=self.cache[fname]['data'], dirty=self.cache[fname]['dirty'],
-                                 refcnt=self.cache[fname]['refcnt'], valid=True)
-            
-        
+        assert fname in self.cache
+        self.cache[fname] = dict(
+            data=self.cache[fname]["data"],
+            dirty=self.cache[fname]["dirty"],
+            refcnt=self.cache[fname]["refcnt"],
+            valid=True,
+        )
+
+
 # actions
-MICRO_OPEN      = 1
-MICRO_READ      = 2
-MICRO_WRITE     = 3
-MICRO_CLOSE     = 4
+MICRO_OPEN = 1
+MICRO_READ = 2
+MICRO_WRITE = 3
+MICRO_CLOSE = 4
+
 
 def op2name(op):
     if op == MICRO_OPEN:
-        return 'MICRO_OPEN'
+        return "MICRO_OPEN"
     elif op == MICRO_READ:
-        return 'MICRO_READ'
+        return "MICRO_READ"
     elif op == MICRO_WRITE:
-        return 'MICRO_WRITE'
+        return "MICRO_WRITE"
     elif op == MICRO_CLOSE:
-        return 'MICRO_CLOSE'
+        return "MICRO_CLOSE"
     else:
-        abort('error: bad op -> ' + op)
+        abort("error: bad op -> " + op)
+
 
 #
 # Client class
 #
 # Models the behavior of each client in the system.
 #
-# 
+#
 #
 class client:
-    def __init__(self, name, cid, server, files, bias, numsteps, actions, solve, detail):
-        self.name    = name      # readable name of client
-        self.cid     = cid       # client ID
-        self.server  = server    # server object
-        self.files   = files     # files object
-        self.bias    = bias      # bias
-        self.actions = actions   # schedule exactly?
-        self.solve   = solve     # show answers?
-        self.detail  = detail    # how much of an answer to show
+    def __init__(
+        self, name, cid, server, files, bias, numsteps, actions, solve, detail
+    ):
+        self.name = name  # readable name of client
+        self.cid = cid  # client ID
+        self.server = server  # server object
+        self.files = files  # files object
+        self.bias = bias  # bias
+        self.actions = actions  # schedule exactly?
+        self.solve = solve  # show answers?
+        self.detail = detail  # how much of an answer to show
 
         # cache
-        self.cache   = cache(self.name, self.cid, self.solve, self.detail)
+        self.cache = cache(self.name, self.cid, self.solve, self.detail)
 
         # file desc
-        self.fd      = filedesc()
+        self.fd = filedesc()
 
         # stats
-        self.readcnt  = 0
+        self.readcnt = 0
         self.writecnt = 0
 
         # init actions
-        self.done    = False     # track state
-        self.acnt    = 0         # this is used when running
-        self.acts    = []        # this just tracks the opcodes
+        self.done = False  # track state
+        self.acnt = 0  # this is used when running
+        self.acts = []  # this just tracks the opcodes
 
-        if self.actions == '':
+        if self.actions == "":
             # in case with no specific actions, generate one...
             for i in range(numsteps):
                 fname = pickrand(self.files.getfiles())
                 r = random.random()
                 fd = self.fd.alloc(fname)
-                zassert(fd >= 0, 'client:init() -- ran out of file descriptors, sorry!')
+                zassert(fd >= 0, "client:init() -- ran out of file descriptors, sorry!")
                 if r < self.bias[0]:
                     # FILE_READ
-                    self.acts.append((MICRO_OPEN,  fname, fd))
-                    self.acts.append((MICRO_READ,  fd))
+                    self.acts.append((MICRO_OPEN, fname, fd))
+                    self.acts.append((MICRO_READ, fd))
                     self.acts.append((MICRO_CLOSE, fd))
                 else:
                     # FILE_WRITE
-                    self.acts.append((MICRO_OPEN,  fname, fd))
+                    self.acts.append((MICRO_OPEN, fname, fd))
                     self.acts.append((MICRO_WRITE, fd))
                     self.acts.append((MICRO_CLOSE, fd))
         else:
             # in this case, unpack actions and make it happen
             # should look like this: "oa1:r1:c1" (open 'a' for reading with file desc 1, read from fd:1, close fd:1)
             # yes the file descriptor and file name are redundant for read/write and close
-            for a in self.actions.split(':'):
+            for a in self.actions.split(":"):
                 act = a[0]
-                if act == 'o':
-                    zassert(len(a) == 3, 'client:init() -- malformed open action (%s) should be oa1 or something like that' % a)
+                if act == "o":
+                    zassert(
+                        len(a) == 3,
+                        "client:init() -- malformed open action (%s) should be oa1 or something like that"
+                        % a,
+                    )
                     fname, fd = a[1], int(a[2])
                     self.fd.alloc(fname, fd)
-                    assert(fd >= 0)
-                    self.acts.append((MICRO_OPEN,  fname, fd))
-                elif act == 'r':
-                    zassert(len(a) == 2, 'client:init() -- malformed read action (%s) should be r1 or something like that' % a)
+                    assert fd >= 0
+                    self.acts.append((MICRO_OPEN, fname, fd))
+                elif act == "r":
+                    zassert(
+                        len(a) == 2,
+                        "client:init() -- malformed read action (%s) should be r1 or something like that"
+                        % a,
+                    )
                     fd = int(a[1])
-                    self.acts.append((MICRO_READ,  fd))
-                elif act == 'w':
-                    zassert(len(a) == 2, 'client:init() -- malformed write action (%s) should be w1 or something like that' % a)
+                    self.acts.append((MICRO_READ, fd))
+                elif act == "w":
+                    zassert(
+                        len(a) == 2,
+                        "client:init() -- malformed write action (%s) should be w1 or something like that"
+                        % a,
+                    )
                     fd = int(a[1])
                     self.acts.append((MICRO_WRITE, fd))
-                elif act == 'c':
-                    zassert(len(a) == 2, 'client:init() -- malformed close action (%s) should be c1 or something like that' % a)
+                elif act == "c":
+                    zassert(
+                        len(a) == 2,
+                        "client:init() -- malformed close action (%s) should be c1 or something like that"
+                        % a,
+                    )
                     fd = int(a[1])
                     self.acts.append((MICRO_CLOSE, fd))
                 else:
-                    print('Unrecognized command: %s (from %s)' % (act, a))
+                    print("Unrecognized command: %s (from %s)" % (act, a))
                     exit(1)
         print(self.acts)
         return
@@ -395,13 +493,15 @@ class client:
         return self.name
 
     def stats(self):
-        print('%s       -- Reads:%d Writes:%d' % (self.name, self.readcnt, self.writecnt))
+        print(
+            "%s       -- Reads:%d Writes:%d" % (self.name, self.readcnt, self.writecnt)
+        )
         self.cache.stats()
-            
+
     def getfile(self, fname):
         (in_cache, item) = self.cache.checkget(fname)
-        if in_cache == True and item['valid'] == 1:
-            dprint('  -> CLIENT %s:: HAS LOCAL COPY of %s' % (self.name, fname))
+        if in_cache == True and item["valid"] == 1:
+            dprint("  -> CLIENT %s:: HAS LOCAL COPY of %s" % (self.name, fname))
             # self.cache.setdirty(fname, dirty)
         else:
             data = self.server.get(self.name, fname)
@@ -439,44 +539,44 @@ class client:
         dospace(space)
 
         if isset(self.detail, 3) == True:
-            print(self.name, end=' ')
+            print(self.name, end=" ")
 
         # now handle the action
         if action == MICRO_OPEN:
             fname, fd = self.acts[self.acnt][1], self.acts[self.acnt][2]
-            tprint('open:%s [fd:%d]' % (fname, fd))
+            tprint("open:%s [fd:%d]" % (fname, fd))
             # self.getfile(fname, dirty=False)
             self.getfile(fname)
         elif action == MICRO_READ:
-            fd    = self.acts[self.acnt][1]
+            fd = self.acts[self.acnt][1]
             fname = self.fd.lookup(fd)
             self.readcnt += 1
             in_cache, contents = self.cache.get(fname)
-            assert(in_cache == True)
+            assert in_cache == True
             if self.solve:
-                tprint('read:%d -> %d' % (fd, contents['data']))
+                tprint("read:%d -> %d" % (fd, contents["data"]))
             else:
-                tprint('read:%d -> value?' % (fd))
+                tprint("read:%d -> value?" % (fd))
         elif action == MICRO_WRITE:
-            fd    = self.acts[self.acnt][1]
+            fd = self.acts[self.acnt][1]
             fname = self.fd.lookup(fd)
             self.writecnt += 1
             in_cache, contents = self.cache.get(fname)
-            assert(in_cache == True)
+            assert in_cache == True
             v = self.files.getvalue()
             self.cache.update(fname, v)
             if self.solve:
-                tprint('write:%d %d -> %d' % (fd, contents['data'], v))
+                tprint("write:%d %d -> %d" % (fd, contents["data"], v))
             else:
-                tprint('write:%d value? -> %d' % (fd, v))
+                tprint("write:%d value? -> %d" % (fd, v))
         elif action == MICRO_CLOSE:
-            fd    = self.acts[self.acnt][1]
+            fd = self.acts[self.acnt][1]
             fname = self.fd.lookup(fd)
             in_cache, contents = self.cache.get(fname)
-            assert(in_cache == True)
-            tprint('close:%d' % (fd))
+            assert in_cache == True
+            tprint("close:%d" % (fd))
             if self.cache.isdirty(fname):
-                self.putfile(fname, contents['data'])
+                self.putfile(fname, contents["data"])
             self.cache.decref(fname)
             self.cache.checkvalid(fname)
 
@@ -484,7 +584,7 @@ class client:
         self.cache.printstate(self.name)
 
         if self.solve and self.detail > 0:
-            print('')
+            print("")
 
         # return that there is more left to do
         self.acnt += 1
@@ -495,44 +595,127 @@ class client:
 # main program
 #
 parser = OptionParser()
-parser.add_option('-s', '--seed',      default=0,      help='the random seed',           action='store', type='int', dest='seed')
-parser.add_option('-C', '--clients',   default=2,      help='number of clients',         action='store', type='int', dest='numclients')
-parser.add_option('-n', '--numsteps',  default=2,      help='ops each client will do',   action='store', type='int', dest='numsteps')
-parser.add_option('-f', '--numfiles',  default=1,      help='number of files in server', action='store', type='int', dest='numfiles')
-parser.add_option('-r', '--readratio', default=0.5,    help='ratio of reads/writes',     action='store', type='float', dest='readratio')
-parser.add_option('-A', '--actions',   default='',     help='client actions exactly specified, e.g., oa1:r1:c1,oa1:w1:c1 specifies two clients; each opens the file a, client 0 reads it whereas client 1 writes it, and then each closes it', action='store', type='string', dest='actions')
-parser.add_option('-S', '--schedule',  default='',     help='exact schedule to run; 01 alternates round robin between clients 0 and 1. Left unspecified leads to random scheduling', action='store', type='string', dest='schedule')
-parser.add_option('-p', '--printstats', default=False, help='print extra stats',      action='store_true', dest='printstats')
-parser.add_option('-c', '--compute',    default=False, help='compute answers for me', action='store_true', dest='solve')
-parser.add_option('-d', '--detail',     default=0,     help='detail level when giving answers (1:server actions,2:invalidations,4:client cache,8:extra labels); OR together for multiple', action='store', type='int', dest='detail')
+parser.add_option(
+    "-s",
+    "--seed",
+    default=0,
+    help="the random seed",
+    action="store",
+    type="int",
+    dest="seed",
+)
+parser.add_option(
+    "-C",
+    "--clients",
+    default=2,
+    help="number of clients",
+    action="store",
+    type="int",
+    dest="numclients",
+)
+parser.add_option(
+    "-n",
+    "--numsteps",
+    default=2,
+    help="ops each client will do",
+    action="store",
+    type="int",
+    dest="numsteps",
+)
+parser.add_option(
+    "-f",
+    "--numfiles",
+    default=1,
+    help="number of files in server",
+    action="store",
+    type="int",
+    dest="numfiles",
+)
+parser.add_option(
+    "-r",
+    "--readratio",
+    default=0.5,
+    help="ratio of reads/writes",
+    action="store",
+    type="float",
+    dest="readratio",
+)
+parser.add_option(
+    "-A",
+    "--actions",
+    default="",
+    help="client actions exactly specified, e.g., oa1:r1:c1,oa1:w1:c1 specifies two clients; each opens the file a, client 0 reads it whereas client 1 writes it, and then each closes it",
+    action="store",
+    type="string",
+    dest="actions",
+)
+parser.add_option(
+    "-S",
+    "--schedule",
+    default="",
+    help="exact schedule to run; 01 alternates round robin between clients 0 and 1. Left unspecified leads to random scheduling",
+    action="store",
+    type="string",
+    dest="schedule",
+)
+parser.add_option(
+    "-p",
+    "--printstats",
+    default=False,
+    help="print extra stats",
+    action="store_true",
+    dest="printstats",
+)
+parser.add_option(
+    "-c",
+    "--compute",
+    default=False,
+    help="compute answers for me",
+    action="store_true",
+    dest="solve",
+)
+parser.add_option(
+    "-d",
+    "--detail",
+    default=0,
+    help="detail level when giving answers (1:server actions,2:invalidations,4:client cache,8:extra labels); OR together for multiple",
+    action="store",
+    type="int",
+    dest="detail",
+)
 (options, args) = parser.parse_args()
 
-print('ARG seed',       options.seed)
-print('ARG numclients', options.numclients)
-print('ARG numsteps',   options.numsteps)
-print('ARG numfiles',   options.numfiles)
-print('ARG readratio',  options.readratio)
-print('ARG actions',    options.actions)
-print('ARG schedule',   options.schedule)
-print('ARG detail',     options.detail)
-print('')
+print("ARG seed", options.seed)
+print("ARG numclients", options.numclients)
+print("ARG numsteps", options.numsteps)
+print("ARG numfiles", options.numfiles)
+print("ARG readratio", options.readratio)
+print("ARG actions", options.actions)
+print("ARG schedule", options.schedule)
+print("ARG detail", options.detail)
+print("")
 
-seed       = int(options.seed)
+seed = int(options.seed)
 numclients = int(options.numclients)
-numsteps   = int(options.numsteps)
-numfiles   = int(options.numfiles)
-readratio  = float(options.readratio)
-actions    = options.actions
-schedule   = options.schedule
+numsteps = int(options.numsteps)
+numfiles = int(options.numfiles)
+readratio = float(options.readratio)
+actions = options.actions
+schedule = options.schedule
 printstats = options.printstats
-solve      = options.solve
-detail     = options.detail
+solve = options.solve
+detail = options.detail
 
 # with specific schedule, files are all specified by a single letter in specific actions list
 # but we ignore this for now...
 
-zassert(numfiles > 0 and numfiles <= 26, 'main: can only simulate 26 or fewer files, sorry')
-zassert(readratio >= 0.0 and readratio <= 1.0, 'main: read ratio must be between 0 and 1 inclusive')
+zassert(
+    numfiles > 0 and numfiles <= 26, "main: can only simulate 26 or fewer files, sorry"
+)
+zassert(
+    readratio >= 0.0 and readratio <= 1.0,
+    "main: read ratio must be between 0 and 1 inclusive",
+)
 
 # start it
 random_seed(seed)
@@ -545,29 +728,31 @@ s = server(f, solve, detail)
 
 clients = []
 
-if actions != '':
+if actions != "":
     # if specific actions are specified, figure some stuff out now
     # e.g., oa1:ra1:ca1,oa1:ra1:ca1 which is list of 0's actions, then 1's, then...
-    cactions = actions.split(',')
+    cactions = actions.split(",")
     if numclients != len(cactions):
         numclients = len(cactions)
     i = 0
     for clist in cactions:
-        clients.append(client('c%d' % i, i, s, f, [], len(clist), clist, solve, detail))
+        clients.append(client("c%d" % i, i, s, f, [], len(clist), clist, solve, detail))
         i += 1
 else:
     # else, make random clients
     for i in range(numclients):
-        clients.append(client('c%d' % i, i, s, f, [readratio, 1.0], numsteps, '', solve, detail))
+        clients.append(
+            client("c%d" % i, i, s, f, [readratio, 1.0], numsteps, "", solve, detail)
+        )
 
 # tell server about these clients
 s.setclients(clients)
 
 # init print out for clients
-print('%12s' % 'Server', '%12s' % ' ', end=' ')
+print("%12s" % "Server", "%12s" % " ", end=" ")
 for c in clients:
-    print('%13s' % c.getname(), '%13s' % ' ', end=' ')
-print('')
+    print("%13s" % c.getname(), "%13s" % " ", end=" ")
+print("")
 
 # main loop
 #
@@ -581,19 +766,23 @@ s.filestats(True)
 schedcurr = 0
 
 # check for legal schedule (must include all clients)
-if schedule != '':
+if schedule != "":
     for i in range(len(clients)):
         cnt = 0
         for j in range(len(schedule)):
             curr = schedule[j]
             if int(curr) == i:
                 cnt += 1
-        zassert(cnt != 0, 'main: client %d not in schedule:%s, which would never terminate' % (i, schedule))
-            
+        zassert(
+            cnt != 0,
+            "main: client %d not in schedule:%s, which would never terminate"
+            % (i, schedule),
+        )
+
 # RUN the schedule (either random or specified by user)
 numrunning = len(clients)
 while numrunning > 0:
-    if schedule == '':
+    if schedule == "":
         c = pickrand(clients)
     else:
         idx = int(schedule[schedcurr])
@@ -613,4 +802,3 @@ if printstats:
     s.stats()
     for c in clients:
         c.stats()
-
