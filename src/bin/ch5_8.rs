@@ -14,7 +14,6 @@ fn main() {
             child_pids.push(child);
         }
         ForkResult::Child => {
-            // Not safe
             close(read_fd).unwrap();
             dup2_stdout(&write_fd).unwrap();
             close(write_fd).unwrap();
@@ -29,7 +28,6 @@ fn main() {
             child_pids.push(child);
         }
         ForkResult::Child => {
-            // Not safe
             close(write_fd).unwrap();
             dup2_stdin(&read_fd).unwrap();
             close(read_fd).unwrap();
